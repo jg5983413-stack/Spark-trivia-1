@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — The Streak Quiz</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+  :root{
+    --ink:#F4EFE4;
+    --night:#161327;
+    --night-2:#211C3C;
+    --card:#28214A;
+    --ember:#FF6B4A;
+    --gold:#F5B942;
+    --muted:#9C93C7;
+    --good:#5CD68A;
+    --bad:#FF6B6B;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(245,185,66,0.10), transparent 45%),
+      radial-gradient(circle at 85% 90%, rgba(255,107,74,0.10), transparent 45%),
+      var(--night);
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .app{
+    width:100%;
+    max-width:520px;
+  }
+
+  .eyebrow{
+    font-size:13px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 6px 2px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  h1.title{
+    font-family:'Fraunces', serif;
+    font-weight:900;
+    font-size:42px;
+    line-height:1.02;
+    margin:0 0 22px 0;
+    letter-spacing:-0.01em;
+  }
+  h1.title em{
+    font-style:normal;
+    color:var(--ember);
+  }
+
+  .card{
+    background:linear-gradient(180deg, var(--card), var(--night-2));
+    border:1px solid rgba(255,255,255,0.06);
+    border-radius:20px;
+    padding:28px 24px 24px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.35);
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* progress + streak row */
+  .hud{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+    font-size:14px;
+    color:var(--muted);
+  }
+  .progress-track{
+    flex:1;
+    height:6px;
+    background:rgba(255,255,255,0.08);
+    border-radius:99px;
+    margin:0 14px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--gold), var(--ember));
+    border-radius:99px;
+    transition:width 0.4s ease;
+    width:0%;
+  }
+  .streak{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-weight:700;
+    color:var(--gold);
+    white-space:nowrap;
+  }
+  .streak.hot{ animation:pulse 0.6s ease; }
+  @keyframes pulse{
+    0%{ transform:scale(1); }
+    40%{ transform:scale(1.25); }
+    100%{ transform:scale(1); }
+  }
+
+  .category-tag{
+    display:inline-block;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--night);
+    background:var(--gold);
+    padding:4px 10px;
+    border-radius:99px;
+    margin-bottom:14px;
+  }
+
+  .question{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:24px;
+    line-height:1.28;
+    margin:0 0 22px 0;
+  }
+
+  .choices{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .choice{
+    text-align:left;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    color:var(--ink);
+    padding:14px 16px;
+    border-radius:12px;
+    font-family:inherit;
+    font-size:16px;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+  .choice:hover:not(:disabled){
+    background:rgba(255,255,255,0.09);
+    border-color:rgba(255,255,255,0.18);
+  }
+  .choice:active:not(:disabled){ transform:scale(0.99); }
+  .choice:disabled{ cursor:default; }
+
+  .choice.correct{
+    background:rgba(92,214,138,0.16);
+    border-color:var(--good);
+    color:var(--good);
+  }
+  .choice.wrong{
+    background:rgba(255,107,107,0.14);
+    border-color:var(--bad);
+    color:var(--bad);
+  }
+
+  .feedback{
+    min-height:20px;
+    margin-top:16px;
+    font-size:14px;
+    color:var(--muted);
+  }
+
+  .next-btn{
+    margin-top:16px;
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:var(--ember);
+    color:var(--night);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.2s ease;
+  }
+  .next-btn.show{ opacity:1; pointer-events:auto; }
+  .next-btn:hover{ filter:brightness(1.08); }
+
+  /* results screen */
+  .result-score{
+    font-family:'Fraunces', serif;
+    font-weight:900;
+    font-size:64px;
+    line-height:1;
+    margin:6px 0 4px;
+    background:linear-gradient(90deg, var(--gold), var(--ember));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .result-sub{ color:var(--muted); margin-bottom:22px; font-size:15px; }
+
+  .result-row{
+    display:flex;
+    justify-content:space-between;
+    padding:10px 0;
+    border-bottom:1px solid rgba(255,255,255,0.07);
+    font-size:14px;
+  }
+  .result-row:last-of-type{ border-bottom:none; }
+  .result-row .k{ color:var(--muted); }
+
+  .actions{ display:flex; gap:10px; margin-top:20px; }
+  .btn{
+    flex:1;
+    padding:14px;
+    border-radius:12px;
+    border:none;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .btn.primary{ background:var(--gold); color:var(--night); }
+  .btn.ghost{ background:transparent; color:var(--ink); border:1px solid rgba(255,255,255,0.16); }
+  .btn:hover{ filter:brightness(1.08); }
+
+  .ad-slot{
+    margin-top:18px;
+    border:1px dashed rgba(255,255,255,0.15);
+    border-radius:14px;
+    padding:14px;
+    text-align:center;
+    font-size:12px;
+    color:var(--muted);
+    letter-spacing:0.04em;
+  }
+
+  @media (max-width:480px){
+    h1.title{ font-size:32px; }
+    .question{ font-size:20px; }
+    .result-score{ font-size:52px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .streak.hot{ animation:none; }
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <p class="eyebrow">🔥 Spark Trivia</p>
+  <h1 class="title">How far can<br>your streak <em>go?</em></h1>
+
+  <div class="card" id="card">
+    <!-- content injected by JS -->
+  </div>
+
+  <div class="ad-slot">Ad space — this is where a banner ad unit goes once you're approved for AdSense</div>
+</div>
+
+<script>
+const QUESTIONS = [
+  { cat:"Geography", q:"Which country has the most time zones?", choices:["Russia","USA","France","China"], answer:2 },
+  { cat:"Science", q:"What gas do plants absorb from the air to make food?", choices:["Oxygen","Nitrogen","Carbon dioxide","Hydrogen"], answer:2 },
+  { cat:"Movies", q:"Who directed 'Jaws' and 'E.T.'?", choices:["George Lucas","Steven Spielberg","Martin Scorsese","James Cameron"], answer:1 },
+  { cat:"History", q:"In what year did the Berlin Wall fall?", choices:["1987","1989","1991","1993"], answer:1 },
+  { cat:"Sports", q:"How many players are on a standard soccer team on the field?", choices:["9","10","11","12"], answer:2 },
+  { cat:"Food", q:"Which spice comes from the Crocus flower?", choices:["Turmeric","Saffron","Paprika","Cumin"], answer:1 },
+  { cat:"Music", q:"Which instrument has 88 keys in its standard form?", choices:["Organ","Piano","Harp","Accordion"], answer:1 },
+  { cat:"Geography", q:"Which is the smallest country in the world?", choices:["Monaco","San Marino","Vatican City","Liechtenstein"], answer:2 },
+  { cat:"Science", q:"What is the hardest natural substance on Earth?", choices:["Gold","Quartz","Diamond","Iron"], answer:2 },
+  { cat:"Literature", q:"Who wrote '1984'?", choices:["Aldous Huxley","Ray Bradbury","George Orwell","H.G. Wells"], answer:2 },
+  { cat:"History", q:"Which ancient civilization built Machu Picchu?", choices:["Aztec","Maya","Inca","Olmec"], answer:2 },
+  { cat:"Animals", q:"What is a baby kangaroo called?", choices:["Cub","Joey","Kid","Calf"], answer:1 },
+  { cat:"Tech", q:"What does 'HTTP' stand for?", choices:["HyperText Transfer Protocol","High Transfer Text Process","Home Tool Transfer Program","HyperText Type Provider"], answer:0 },
+  { cat:"Movies", q:"Which movie features the line 'I'll be back'?", choices:["Predator","The Terminator","RoboCop","Die Hard"], answer:1 },
+  { cat:"Geography", q:"The Sahara Desert is located on which continent?", choices:["Asia","Africa","Australia","South America"], answer:1 }
+];
+
+let order = [];
+let idx = 0;
+let score = 0;
+let streak = 0;
+let bestStreak = 0;
+
+const card = document.getElementById('card');
+
+function shuffle(arr){
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function start(){
+  order = shuffle(QUESTIONS);
+  idx = 0;
+  score = 0;
+  streak = 0;
+  bestStreak = 0;
+  renderQuestion();
+}
+
+function renderQuestion(){
+  const total = order.length;
+  const item = order[idx];
+  const pct = Math.round((idx/total)*100);
+
+  card.innerHTML = `
+    <div class="hud">
+      <span>Q${idx+1} of ${total}</span>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <span class="streak" id="streakDisplay">${streak > 0 ? '🔥 ' + streak : ''}</span>
+    </div>
+    <span class="category-tag">${item.cat}</span>
+    <p class="question">${item.q}</p>
+    <div class="choices" id="choices">
+      ${item.choices.map((c,i) => `<button class="choice" data-i="${i}">${c}</button>`).join('')}
+    </div>
+    <p class="feedback" id="feedback"></p>
+    <button class="next-btn" id="nextBtn">${idx === total-1 ? 'See results' : 'Next question →'}</button>
+  `;
+
+  const buttons = card.querySelectorAll('.choice');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => handleAnswer(parseInt(btn.dataset.i), item, buttons));
+  });
+
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    idx++;
+    if(idx >= order.length){
+      renderResults();
+    } else {
+      renderQuestion();
+    }
+  });
+}
+
+function handleAnswer(choiceIdx, item, buttons){
+  buttons.forEach(b => b.disabled = true);
+  const correctBtn = buttons[item.answer];
+  correctBtn.classList.add('correct');
+
+  const feedback = document.getElementById('feedback');
+  const streakDisplay = document.getElementById('streakDisplay');
+
+  if(choiceIdx === item.answer){
+    score++;
+    streak++;
+    bestStreak = Math.max(bestStreak, streak);
+    feedback.textContent = streak >= 3 ? `Correct! You're on fire.` : 'Correct!';
+    streakDisplay.textContent = '🔥 ' + streak;
+    streakDisplay.classList.remove('hot');
+    void streakDisplay.offsetWidth;
+    streakDisplay.classList.add('hot');
+  } else {
+    buttons[choiceIdx].classList.add('wrong');
+    streak = 0;
+    streakDisplay.textContent = '';
+    feedback.textContent = 'Not quite — the right answer is highlighted.';
+  }
+
+  document.getElementById('nextBtn').classList.add('show');
+}
+
+function renderResults(){
+  const total = order.length;
+  const pct = Math.round((score/total)*100);
+  let verdict = 'Room to grow';
+  if(pct === 100) verdict = 'Flawless run';
+  else if(pct >= 80) verdict = 'Sharp';
+  else if(pct >= 50) verdict = 'Solid effort';
+
+  card.innerHTML = `
+    <p class="eyebrow" style="margin-top:0">Result</p>
+    <div class="result-score">${score}/${total}</div>
+    <p class="result-sub">${verdict} — best streak was ${bestStreak} in a row.</p>
+    <div class="result-row"><span class="k">Correct answers</span><span>${score}</span></div>
+    <div class="result-row"><span class="k">Accuracy</span><span>${pct}%</span></div>
+    <div class="result-row"><span class="k">Longest streak</span><span>${bestStreak} 🔥</span></div>
+    <div class="actions">
+      <button class="btn primary" id="retryBtn">Play again</button>
+      <button class="btn ghost" id="copyBtn">Copy result</button>
+    </div>
+  `;
+
+  document.getElementById('retryBtn').addEventListener('click', start);
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    const text = `I scored ${score}/${total} (${pct}%) on Spark Trivia with a best streak of ${bestStreak} 🔥 — can you beat it?`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy result', 1500);
+    });
+  });
+}
+
+start();
+</script>
+
+</body>
+</html>
